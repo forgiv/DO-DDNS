@@ -6,26 +6,36 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 )
 
+type RecordResponse struct {
+	ID       int         `json:"id"`
+	Type     string      `json:"type"`
+	Name     string      `json:"name"`
+	Data     string      `json:"data"`
+	Priority interface{} `json:"priority"`
+	Port     interface{} `json:"port"`
+	TTL      int         `json:"ttl"`
+	Weight   interface{} `json:"weight"`
+	Flags    interface{} `json:"flags"`
+	Tag      interface{} `json:"tag"`
+}
+
 type RecordsResponse struct {
-	DomainRecords []struct {
-		ID       int         `json:"id"`
-		Type     string      `json:"type"`
-		Name     string      `json:"name"`
-		Data     string      `json:"data"`
-		Priority interface{} `json:"priority"`
-		Port     interface{} `json:"port"`
-		TTL      int         `json:"ttl"`
-		Weight   interface{} `json:"weight"`
-		Flags    interface{} `json:"flags"`
-		Tag      interface{} `json:"tag"`
-	} `json:"domain_records"`
-	Links struct {
+	DomainRecords []RecordResponse `json:"domain_records"`
+	Links         struct {
 	} `json:"links"`
 	Meta struct {
 		Total int `json:"total"`
 	} `json:"meta"`
+}
+
+type NewRecordRequest struct {
+	Type string `json:"type"`
+	Name string `json:"name"`
+	Data string `json:"data"`
+	Ttl  int    `json:"ttl"`
 }
 
 func main() {
@@ -38,7 +48,62 @@ func main() {
 	// First step, find domain A record that matches our domain and subdomain
 	recordId := getRecordId(client, args[0], args[1], args[2])
 
-	fmt.Printf("Record ID: %d\n", recordId)
+	// Second step, decide whether to create new record or update existing and do it
+	var record RecordResponse
+	if recordId == 0 {
+		record = createNewRecord(client, args[0], args[1], args[2])
+	}
+
+	fmt.Println(prettyPrint(record))
+}
+
+func prettyPrint(i interface{}) string {
+	s, _ := json.MarshalIndent(i, "", "\t")
+
+	return string(s)
+}
+
+// Get preferred outbound ip of this machine
+func getOutboundIP(client *http.Client) string {
+	req, _ := http.NewRequest("GET", "https://api.ipify.org", nil)
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	return string(body)
+}
+
+func createNewRecord(client *http.Client, domain string, subdomain string, apiKey string) RecordResponse {
+	data := NewRecordRequest{
+		Type: "A",
+		Name: subdomain,
+		Data: getOutboundIP(client),
+		Ttl:  30,
+	}
+
+	jsonData, _ := json.Marshal(data)
+
+	req, _ := http.NewRequest("POST", fmt.Sprintf("https://api.digitalocean.com/v2/domains/%s/records", domain), strings.NewReader(string(jsonData)))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	var record RecordResponse
+	if err = json.Unmarshal(body, &record); err != nil {
+		fmt.Println("Unable to unmarshal JSON")
+	}
+
+	return record
 }
 
 func getRecordId(client *http.Client, domain string, subdomain string, apiKey string) int {
@@ -65,9 +130,4 @@ func getRecordId(client *http.Client, domain string, subdomain string, apiKey st
 	}
 
 	return recordId
-}
-
-func prettyPrint(i interface{}) string {
-	s, _ := json.MarshalIndent(i, "", "\t")
-	return string(s)
 }
