@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-type RecordResponse struct {
+type DomainRecord struct {
 	ID       int         `json:"id"`
 	Type     string      `json:"type"`
 	Name     string      `json:"name"`
@@ -22,8 +22,12 @@ type RecordResponse struct {
 	Tag      interface{} `json:"tag"`
 }
 
+type RecordResponse struct {
+	DomainRecord DomainRecord `json:"domain_record"`
+}
+
 type RecordsResponse struct {
-	DomainRecords []RecordResponse `json:"domain_records"`
+	DomainRecords []DomainRecord `json:"domain_records"`
 	Links         struct {
 	} `json:"links"`
 	Meta struct {
@@ -57,6 +61,7 @@ func main() {
 	fmt.Println(prettyPrint(record))
 }
 
+// Return pretty formatted string
 func prettyPrint(i interface{}) string {
 	s, _ := json.MarshalIndent(i, "", "\t")
 
@@ -77,6 +82,34 @@ func getOutboundIP(client *http.Client) string {
 	return string(body)
 }
 
+// Return ID of existing record to update or zero if no record
+func getRecordId(client *http.Client, domain string, subdomain string, apiKey string) int {
+	req, _ := http.NewRequest("GET", fmt.Sprintf("https://api.digitalocean.com/v2/domains/%s/records?type=A", domain), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	var records RecordsResponse
+	if err = json.Unmarshal(body, &records); err != nil {
+		fmt.Println("Unable to unmarshal JSON")
+	}
+
+	var recordId int
+	for _, record := range records.DomainRecords {
+		if record.Name == subdomain {
+			recordId = record.ID
+		}
+	}
+
+	return recordId
+}
+
+// Creates a new A record pointing to IP of machine
 func createNewRecord(client *http.Client, domain string, subdomain string, apiKey string) RecordResponse {
 	data := NewRecordRequest{
 		Type: "A",
@@ -104,30 +137,4 @@ func createNewRecord(client *http.Client, domain string, subdomain string, apiKe
 	}
 
 	return record
-}
-
-func getRecordId(client *http.Client, domain string, subdomain string, apiKey string) int {
-	req, _ := http.NewRequest("GET", fmt.Sprintf("https://api.digitalocean.com/v2/domains/%s/records?type=A", domain), nil)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-
-	body, _ := ioutil.ReadAll(resp.Body)
-
-	var records RecordsResponse
-	if err = json.Unmarshal(body, &records); err != nil {
-		fmt.Println("Unable to unmarshal JSON")
-	}
-
-	var recordId int
-	for _, record := range records.DomainRecords {
-		if record.Name == subdomain {
-			recordId = record.ID
-		}
-	}
-
-	return recordId
 }
