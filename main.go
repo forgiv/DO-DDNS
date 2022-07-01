@@ -42,6 +42,11 @@ type NewRecordRequest struct {
 	Ttl  int    `json:"ttl"`
 }
 
+type UpdateRecordRequest struct {
+	Type string `json:"type"`
+	Data string `json:"data"`
+}
+
 func main() {
 	// args = [domain, subdomain, apiKey]
 	args := os.Args[1:]
@@ -56,6 +61,8 @@ func main() {
 	var record RecordResponse
 	if recordId == 0 {
 		record = createNewRecord(client, args[0], args[1], args[2])
+	} else {
+		record = updateExistingRecord(client, args[0], recordId, args[2])
 	}
 
 	fmt.Println(prettyPrint(record))
@@ -121,6 +128,33 @@ func createNewRecord(client *http.Client, domain string, subdomain string, apiKe
 	jsonData, _ := json.Marshal(data)
 
 	req, _ := http.NewRequest("POST", fmt.Sprintf("https://api.digitalocean.com/v2/domains/%s/records", domain), strings.NewReader(string(jsonData)))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	var record RecordResponse
+	if err = json.Unmarshal(body, &record); err != nil {
+		fmt.Println("Unable to unmarshal JSON")
+	}
+
+	return record
+}
+
+func updateExistingRecord(client *http.Client, domain string, recordID int, apiKey string) RecordResponse {
+	data := UpdateRecordRequest{
+		Type: "A",
+		Data: getOutboundIP(client),
+	}
+
+	jsonData, _ := json.Marshal(data)
+
+	req, _ := http.NewRequest("PATCH", fmt.Sprintf("https://api.digitalocean.com/v2/domains/%s/records/%d", domain, recordID), strings.NewReader(string(jsonData)))
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
 
 	resp, err := client.Do(req)
