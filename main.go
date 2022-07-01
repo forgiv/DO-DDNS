@@ -36,8 +36,14 @@ func main() {
 	client := &http.Client{}
 
 	// First step, find domain A record that matches our domain and subdomain
-	req, _ := http.NewRequest("GET", fmt.Sprintf("https://api.digitalocean.com/v2/domains/%s/records?type=A", args[0]), nil)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", args[2]))
+	recordId := getRecordId(client, args[0], args[1], args[2])
+
+	fmt.Printf("Record ID: %d\n", recordId)
+}
+
+func getRecordId(client *http.Client, domain string, subdomain string, apiKey string) int {
+	req, _ := http.NewRequest("GET", fmt.Sprintf("https://api.digitalocean.com/v2/domains/%s/records?type=A", domain), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
 	resp, err := client.Do(req)
 	if err != nil {
 		panic(err)
@@ -53,12 +59,12 @@ func main() {
 
 	var recordId int
 	for _, record := range records.DomainRecords {
-		if record.Name == args[1] {
+		if record.Name == subdomain {
 			recordId = record.ID
 		}
 	}
 
-	fmt.Println(recordId)
+	return recordId
 }
 
 func prettyPrint(i interface{}) string {
