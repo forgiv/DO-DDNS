@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+do-ddns
 
 # Test binary, built with `go test -c`
 *.test
