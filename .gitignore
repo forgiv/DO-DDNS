@@ -17,3 +17,6 @@ do-ddns
 
 # Env vars for testing
 .env
+
+# Ignore the vscode files
+.vscode/
