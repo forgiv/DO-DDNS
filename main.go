@@ -106,7 +106,7 @@ func getRecordId(client *http.Client, domain string, subdomain string, apiKey st
 		fmt.Println("Unable to unmarshal JSON")
 	}
 
-	var recordId int
+	recordId := 0
 	for _, record := range records.DomainRecords {
 		if record.Name == subdomain {
 			recordId = record.ID
