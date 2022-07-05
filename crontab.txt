@@ -1,1 +1,1 @@
-*/5 * * * * /do-ddns $DOMAIN $SUBDOMAIN $APIKEY >> /var/log/do-ddns.log
+0 * * * * /do-ddns $DOMAIN $SUBDOMAIN $APIKEY >> /var/log/do-ddns.log
