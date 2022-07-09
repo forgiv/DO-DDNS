@@ -20,3 +20,7 @@ do-ddns
 
 # Ignore the vscode files
 .vscode/
+
+# ignore local files used for testing
+docker-compose.yml
+log
