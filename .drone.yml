@@ -12,6 +12,7 @@ steps:
     commands:
       - ls
       - go build .
+      - ls
     when:
       branch:
         - master
